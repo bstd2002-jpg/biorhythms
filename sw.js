@@ -1,7 +1,7 @@
 // Offline support for Biological Rhythms Tracker.
 // Network first: when online you always get the newest files (and they're saved for offline use);
 // when offline, the saved copies are used. Change CACHE with each new version.
-const CACHE = "rhythms-v52";
+const CACHE = "rhythms-v54";
 const FILES = [
   "./", "./index.html", "./script.js", "./chart.umd.min.js", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",

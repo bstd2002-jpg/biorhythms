@@ -1,6 +1,6 @@
 // Version stamp: the page checks this matches its own, to catch an outdated script.js
 // (for example one the browser cached). Update both numbers together.
-window.APP_VERSION = "52";
+window.APP_VERSION = "54";
 
 // ---------------------------------------------
 // Logging days
@@ -57,6 +57,9 @@ const DAY = 86400000;
 
 // Phones: taller plots (the legends wrap onto more rows) and smaller legend labels
 const narrowScreen = () => window.matchMedia("(max-width: 640px)").matches;
+// Charts react to taps (click) and the mouse, but not to touches while scrolling, so details
+// don't pop up as you scroll past a chart on a phone
+if (window.Chart) Chart.defaults.events = ["mousemove", "mouseout", "click"];
 const legendLabels = () => narrowScreen() ? { boxWidth: 12, boxHeight: 8, padding: 6, font: { size: 11 } } : {};
 const toDate = s => new Date(s + "T00:00:00");
 
@@ -998,6 +1001,13 @@ function showTip(text, mouseEvent, source, target = canvas) {
   }
 }
 
+// Leaving a chart closes its hover details, but not an explanation opened with a "?" tap
+// (on phones, a tap elsewhere makes the browser send a "mouse left the chart" event)
+function hideHoverTip() {
+  if (["help", "rkey", "eatflag"].includes(tipSource)) return;
+  hideTip();
+}
+
 function hideTip() {
   tipSource = null;
   chartTip.hidden = true;
@@ -1005,7 +1015,75 @@ function hideTip() {
   tipCanvas = null;
 }
 
-canvas.addEventListener("mouseleave", hideTip);
+canvas.addEventListener("mouseleave", hideHoverTip);
+
+// ---- "?" help: tap (or hover with a mouse) for an explanation; tap again or anywhere else to close ----
+let lastPointer = "mouse";
+document.addEventListener("pointerdown", e => { lastPointer = e.pointerType || "mouse"; }, true);
+function attachHelp(btn, getText, source = "help") {
+  let wasOpen = false;
+  btn.addEventListener("pointerdown", () => { wasOpen = tipSource === source && tipCanvas === btn; });
+  btn.addEventListener("click", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (wasOpen && e.pointerType !== "mouse") { wasOpen = false; return hideTip(); }
+    const r = btn.getBoundingClientRect();
+    showTip(getText(), e.clientX || e.clientY ? e : { clientX: r.left, clientY: r.bottom }, source, btn);
+  });
+  btn.addEventListener("mousemove", e => { if (lastPointer === "mouse") showTip(getText(), e, source, btn); });
+  btn.addEventListener("mouseleave", () => {
+    if (lastPointer === "mouse" && tipSource === source && tipCanvas === btn) hideTip();
+  });
+}
+function helpButton(label, getText) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "help-q";
+  b.textContent = "?";
+  b.setAttribute("aria-label", `What is ${label}?`);
+  attachHelp(b, getText);
+  return b;
+}
+// Scrolling closes any open explanation or detail, so it doesn't float over the page
+window.addEventListener("scroll", () => { if (tipSource) hideTip(); }, { passive: true });
+// A tap anywhere else closes an open explanation
+document.addEventListener("pointerdown", e => {
+  if (!tipSource || e.target.closest(".help-q, .rkey-name, .eat-flag, #chartTip")) return;
+  if (["help", "rkey", "eatflag"].includes(tipSource) || e.pointerType !== "mouse") hideTip();
+});
+
+// Key items: a checkbox to show/hide (optional) and a name whose "?" explains it
+function buildKey(container, items) {
+  container.innerHTML = "";
+  for (const it of items) {
+    const item = document.createElement("span");
+    item.className = "rkey-item" + (it.toggle && !it.checked ? " off" : "") + (it.toggle ? "" : " help-only");
+    const check = document.createElement(it.toggle ? "label" : "span");
+    check.className = "rkey-check";
+    if (it.toggle) {
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      box.checked = !!it.checked;
+      box.setAttribute("aria-label", `Show ${it.label}`);
+      box.addEventListener("change", () => it.toggle(box.checked));
+      check.appendChild(box);
+    }
+    if (it.color) {
+      const sw = document.createElement("span");
+      sw.className = "swatch " + (it.swatch || "line-swatch");
+      sw.style.background = it.color;
+      check.appendChild(sw);
+    }
+    const name = document.createElement("button");
+    name.type = "button";
+    name.className = "rkey-name";
+    name.textContent = it.label;
+    name.setAttribute("aria-label", `What is ${it.label}?`);
+    attachHelp(name, () => it.info, "rkey");
+    item.append(check, name);
+    container.appendChild(item);
+  }
+}
 
 // Shows a tip while the mouse is over the y-axis label or a phase label
 const inBox = (e, b) => e.x >= b.left && e.x <= b.right && e.y >= b.top && e.y <= b.bottom;
@@ -1015,7 +1093,7 @@ const axisHover = {
   afterEvent(chart, args) {
     if (tipSource === "legend") return;
     const e = args.event;
-    if (e.type === "mouseout") { if (tipSource) hideTip(); return; }
+    if (e.type === "mouseout") { hideHoverTip(); return; }
 
     const phase = (chart.$phaseLabels || []).find(b => inBox(e, b));
     if (phase) return showTip(PHASE_INFO[phase.key], e.native, "phase");
@@ -1069,6 +1147,24 @@ function fmtRange(a, b) {
   return a.getFullYear() === b.getFullYear()
     ? `${md(a)} – ${md(b)}, ${b.getFullYear()}`
     : `${fmt(a)} – ${fmt(b)}`;
+}
+
+// Key above the line chart: hormones (checkbox + "?") and the phases and y-axis ("?" only)
+const cycleKey = document.getElementById("cycleKey");
+function renderCycleKey() {
+  const g = goals.hormones, items = [];
+  for (const name of Object.keys(COLORS)) {
+    const listed = isDetailed(g) || (isOn(g) && (name === "estradiol" || name === "progesterone")) || polarShow[name];
+    if (!listed) continue;
+    items.push({ label: HORMONE_NAMES[name], color: COLORS[name], checked: polarShow[name], info: HORMONE_INFO[name],
+                 toggle: on => { polarShow[name] = on; applyDisplay(); } });
+  }
+  if (!usesBirthControl()) {
+    items.push({ label: "Follicular phase", color: "#c3e9df", swatch: "dot", info: PHASE_INFO.follicular });
+    items.push({ label: "Luteal phase", color: "#c9d6f2", swatch: "dot", info: PHASE_INFO.luteal });
+  }
+  items.push({ label: "Relative level", info: Y_AXIS_INFO });
+  buildKey(cycleKey, items);
 }
 
 // viewCycle = last + 1 shows the predicted next cycle
@@ -1179,7 +1275,9 @@ function renderChart(days) {
       "the estimates don't account for missed pills.";
   }
 
+  cycleKey.hidden = circle;
   if (circle) { canvas.parentElement.style.height = ""; return renderPolarSingle(cur, days); }
+  renderCycleKey();
 
   const xs = [];
   for (let d = 0; d <= len; d += 0.25) xs.push(d); // fine steps so the LH spike shows
@@ -1195,13 +1293,14 @@ function renderChart(days) {
   }));
 
   const narrow = narrowScreen();
-  canvas.parentElement.style.height = narrow ? "330px" : "";
+  canvas.parentElement.style.height = narrow ? "270px" : "";
   chart = new Chart(canvas, {
     type: "line",
     data: { datasets },
     options: {
       animation: false,
-      maintainAspectRatio: !narrow,      // phones: fill the 330px box instead of a wide 2:1 shape
+      maintainAspectRatio: !narrow,      // phones: fill the 270px box instead of a wide shape
+      aspectRatio: 2.4,
       scales: {
         x: {
           type: "linear", min: 0, max: len,
@@ -1210,7 +1309,7 @@ function renderChart(days) {
         },
         y: {
           min: 0, max: 1.05,
-          title: { display: true, text: "Relative level ⓘ" },
+          title: { display: true, text: "Relative level" },
           ticks: { display: false },
         },
       },
@@ -1218,12 +1317,7 @@ function renderChart(days) {
         todayLine: { x: cur.current && todayX <= len ? todayX : null },
         phaseBands: { ov: usesBirthControl() ? null : ovX, len },
         tooltip: { enabled: false },   // hovering a curve shows its description instead (axisHover)
-        legend: {
-          labels: legendLabels(),
-          onHover: (e, item) =>
-            showTip(HORMONE_INFO[hormoneKey(item.text)] ?? `What does ${item.text} do?`, e.native, "legend"),
-          onLeave: () => { if (tipSource === "legend") hideTip(); },
-        },
+        legend: { display: false },     // the key above the chart shows, hides and explains each hormone
       },
     },
     plugins: [phaseBands, todayLine, axisHover, alignArrows],
@@ -1256,7 +1350,7 @@ const viewPrefs = (() => {
   try { return JSON.parse(localStorage.getItem(CYCLE_VIEW_KEY) || "{}"); } catch { return {}; }
 })();
 let cycleMode = viewPrefs.mode === "circle" ? "circle" : "line";
-let historyMode = viewPrefs.historyMode === "bars" ? "bars" : "circle";
+let historyMode = viewPrefs.historyMode === "circle" ? "circle" : "bars";
 let historyRange = [3, 6, 12].includes(viewPrefs.historyRange) ? viewPrefs.historyRange : 6;
 function saveViewPrefs() {
   try {
@@ -1522,7 +1616,7 @@ ackGo.addEventListener("click", () => {
   try { localStorage.setItem("backupAcknowledged", String(Date.now())); } catch {}
   backupAck.close();
   closeSetup(true);
-  toast("You're all set. Settings (top right) changes these any time.");
+  toast("You're all set. Settings (in the ☰ menu, top right) changes these any time.");
 });
 
 function openSetup(welcome) {
@@ -1575,6 +1669,18 @@ setupDialog.addEventListener("cancel", e => {
 });
 document.getElementById("settingsBtn").addEventListener("click", () => openSetup(false));
 
+// ☰ menu (top right): Settings, Export and Import
+const menuBtn = document.getElementById("menuBtn");
+const appMenu = document.getElementById("appMenu");
+function setMenu(open) {
+  appMenu.hidden = !open;
+  menuBtn.setAttribute("aria-expanded", String(open));
+}
+menuBtn.addEventListener("click", () => setMenu(appMenu.hidden));
+appMenu.addEventListener("click", e => { if (e.target.closest("button")) setMenu(false); });
+document.addEventListener("pointerdown", e => { if (!appMenu.hidden && !e.target.closest(".menu-wrap")) setMenu(false); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !appMenu.hidden) { setMenu(false); menuBtn.focus(); } });
+
 // ---- Controls ----
 function syncViewControls() {
   for (const b of document.querySelectorAll("#cycleView button")) {
@@ -1590,7 +1696,15 @@ function syncViewControls() {
 for (const b of document.querySelectorAll("#cycleView button")) {
   b.addEventListener("click", () => { cycleMode = b.dataset.mode; saveViewPrefs(); renderChart(load()); });
 }
-// Hovering a hormone chip explains it, as the line chart's legend does
+// Each hormone chip gets a "?" for its explanation (hover on the chip still works with a mouse)
+for (const chip of polarOptions.querySelectorAll(".chip[data-info]")) {
+  const key = chip.dataset.info;
+  chip.appendChild(helpButton(HORMONE_NAMES[key] ?? key, () => HORMONE_INFO[key] ?? PHASE_INFO[key] ?? ""));
+}
+for (const [cls, key] of [["key-follicular", "follicular"], ["key-luteal", "luteal"]]) {
+  const el = document.querySelector(`.cycle-key .${cls}`);
+  if (el) el.appendChild(helpButton(`the ${key} phase`, () => PHASE_INFO[key]));
+}
 for (const chip of polarOptions.querySelectorAll(".chip[data-info]")) {
   chip.addEventListener("mousemove", e => {
     const key = chip.dataset.info;
@@ -1598,7 +1712,7 @@ for (const chip of polarOptions.querySelectorAll(".chip[data-info]")) {
   });
   chip.addEventListener("mouseleave", () => { if (tipSource === "chip") hideTip(); });
 }
-polarCanvas.addEventListener("mouseleave", hideTip);
+polarCanvas.addEventListener("mouseleave", hideHoverTip);
 
 // Scrolling sideways (trackpad, Shift + wheel) or swiping steps to the next/previous cycle
 let swipeAccum = 0, swipeLock = 0;
@@ -1954,7 +2068,7 @@ for (const b of document.querySelectorAll("#historyView button")) {
 for (const b of document.querySelectorAll("#historyRange button")) {
   b.addEventListener("click", () => { historyRange = Number(b.dataset.range); saveViewPrefs(); renderHistory(load()); });
 }
-historyPolar.addEventListener("mouseleave", hideTip);
+historyPolar.addEventListener("mouseleave", hideHoverTip);
 
 // Open one past cycle in the main chart at the top of the page
 function openCycle(index) {
@@ -2616,23 +2730,23 @@ const RHYTHM_INFO = {
   "Melatonin":
     "Rises: in darkness, on a schedule set by the body clock (SCN); light switches it off. " +
     "Peaks mid-sleep.\n" +
-    "Does: tells the body clock it's night and quiets its alerting signal, letting sleep " +
+    "Function: tells the body clock it's night and quiets its alerting signal, letting sleep " +
     "pressure take over. Also lowers body temperature.\n" +
     "Source: Doghramji 2007, p. S18.",
   "Alerting signal (Process C)":
     "Rises: through the day, driven by the body clock; peaks ~2–3 h before your usual " +
     "bedtime, then falls as melatonin rises.\n" +
-    "Does: promotes wakefulness, holding off the sleep pressure that builds during the day.\n" +
+    "Function: promotes wakefulness, holding off the sleep pressure that builds during the day.\n" +
     "Source: Doghramji 2007, p. S17–S18, Fig. 1.",
   "Sleep pressure (Process S)":
     "Rises: the longer you're awake; clears during sleep.\n" +
-    "Does: the body's drive to sleep: sleepiness and the need for deep (slow-wave) sleep. " +
+    "Function: the body's drive to sleep: sleepiness and the need for deep (slow-wave) sleep. " +
     "Sleep loss carries over into longer, deeper sleep the next night.\n" +
     "Source: two-process model; Doghramji 2007, p. S18.",
   "Adenosine":
     "Rises: within minutes of waking, as active brain cells use energy (ATP); climbs further " +
     "if you stay awake much longer than usual. Drops within minutes of falling asleep.\n" +
-    "Does: binds A1 and A2A receptors to quiet wake-promoting brain areas and deepen sleep. " +
+    "Function: binds A1 and A2A receptors to quiet wake-promoting brain areas and deepen sleep. " +
     "Caffeine works by blocking these receptors.\n" +
     "Source: Reichert et al. 2022, p. 3–4.",
   "Sleep stages":
@@ -2644,14 +2758,14 @@ const RHYTHM_INFO = {
     "Rises: through the day to a late-afternoon high; falls in the evening as melatonin rises, " +
     "to a low ~3–4 h before waking. Swings ~0.8–1 °C. In the luteal phase progesterone raises it " +
     "~0.4 °C and shrinks the nighttime dip; it's lowest just before ovulation.\n" +
-    "Does: sleep usually starts as temperature falls; a higher nighttime temperature goes with " +
+    "Function: sleep usually starts as temperature falls; a higher nighttime temperature goes with " +
     "taking longer to fall asleep. Right-hand axis, in °C.\n" +
     "Sources: Baker & Driver 2007, p. 614–615; Shechter et al. 2010, p. 651, 653.",
   "Cortisol":
     "Rises: in the second half of the night, with a burst of ~40–75% in the first 30–60 min after " +
     "waking (bigger with bright morning light); falls through the day to a low around bedtime. " +
     "Hard exercise of 20+ min adds a bump 20–30 min later. Slightly lower in the luteal phase.\n" +
-    "Does: the main stress hormone: mobilizes energy (glucose), supports blood pressure, and tunes " +
+    "Function: the main stress hormone: mobilizes energy (glucose), supports blood pressure, and tunes " +
     "the immune response. How high your own levels run varies up to ~100-fold between people.\n" +
     "Sources: Kulzhanova et al. 2023; Ozgocer et al. 2022; Montero-López et al. 2018; Prado et al. 2025.",
   "Sleep propensity":
@@ -2755,7 +2869,7 @@ const rhythmMarks = {
 // Items close in time wrap onto extra lines instead of overlapping. The chart grows
 // its bottom padding to fit however many lines are needed.
 const LANE_LINE = 20, LANE_GAP = 6, LANE_TOP = 8, STAGE_ROW = 11;
-let RHYTHM_PLOT_HEIGHT = 300;   // px for the legend, plot, and axis; event rows are added below
+let RHYTHM_PLOT_HEIGHT = 270;   // px for the legend, plot, and axis; event rows are added below
 
 // Assigns each item a line within its row so labels don't collide
 function packLane(items, xOf, ctx, left, right) {
@@ -3284,7 +3398,7 @@ function setRhythmMode(mode) {
 for (const b of document.querySelectorAll("#rhythmViewMode button")) {
   b.addEventListener("click", () => { setRhythmMode(b.dataset.mode); renderRhythms(); });
 }
-rhythmPolar.addEventListener("mouseleave", hideTip);
+rhythmPolar.addEventListener("mouseleave", hideHoverTip);
 window.addEventListener("resize", () => { if (rhythmMode === "circle") renderRhythms(); });
 
 // Sideways scroll or swipe on the clock changes day, like the arrows
@@ -3315,19 +3429,21 @@ function syncRhythmMode() {
   }
 }
 
-// Clickable/hoverable key for the curves shown (the line chart has its own legend)
-function renderRhythmKey(shown) {
-  rhythmKey.innerHTML = "";
-  for (const d of shown) {
-    const item = document.createElement("span");
-    item.className = "key-item";
-    item.innerHTML = `<span class="swatch line-swatch"></span>`;
-    item.firstChild.style.background = d.color;
-    item.append(d.label);
-    item.addEventListener("mousemove", e => showTip(RHYTHM_INFO[d.label] ?? d.label, e, "rkey", item));
-    item.addEventListener("mouseleave", () => { if (tipSource === "rkey") hideTip(); });
-    rhythmKey.appendChild(item);
+// Key above the chart (line and clock): a checkbox shows or hides each curve, and tapping (or hovering)
+// its name explains it, so hiding and getting details are separate on touch screens.
+// Simple circadian shows only melatonin and cortisol here; Detailed lists every curve.
+const SIMPLE_CURVES = ["rMelatonin", "rCortisol"];
+function renderRhythmKey(all, circle) {
+  const detailed = isDetailed(goals.circadian) || !isOn(goals.circadian);
+  const items = [];
+  for (const d of all) {
+    const pref = RHYTHM_PREF[d.label];
+    if (!detailed && !SIMPLE_CURVES.includes(pref) && !polarShow[pref]) continue;
+    items.push({ label: d.label, color: d.color, checked: polarShow[pref], info: RHYTHM_INFO[d.label] ?? d.label,
+                 toggle: on => { polarShow[pref] = on; applyDisplay(); } });
   }
+  if (polarShow.rStages) items.push({ label: "Sleep stages", info: RHYTHM_INFO["Sleep stages"] });
+  buildKey(rhythmKey, items);
 }
 
 function renderRhythmCircle({ datasets, episodes, asleep, stages, lanes, nowHours }) {
@@ -3471,7 +3587,6 @@ function renderRhythmCircle({ datasets, episodes, asleep, stages, lanes, nowHour
   ctx.fillStyle = "#5a6272";
   ctx.fillText(day.toLocaleDateString(undefined, { month: "short", day: "numeric" }), cx, cy + 9);
 
-  renderRhythmKey(datasets);
 
   // Hover: the time, whether asleep (and the estimated stage), the curves, and nearby events
   rhythmPolar.onmousemove = e => {
@@ -3536,7 +3651,7 @@ function renderRhythms() {
         `${shiftToday > 0 ? "later" : "earlier"} for tonight. `
       : ". ") +
     "Solid lines are up to now; dashed lines are predictions. The strip under the time axis estimates " +
-    "your sleep stages. Hover the legend or the strip for explanations, and see Methods at the bottom of " +
+    "your sleep stages. Tap a name in the key (or hover the strip) for explanations, and see Methods at the bottom of " +
     "the page for how each estimate is made. Drag the chart sideways (or swipe, or Shift + scroll) to move through time.";
 
   // Everything is computed for PAN_DAYS days either side of this day, so the chart can be
@@ -3757,7 +3872,7 @@ function renderRhythms() {
       color: RHYTHM_COLORS.propensity },
   ].map(d => ({
     ...d, borderColor: d.color, backgroundColor: d.color, borderWidth: 2, pointRadius: 0,
-    hidden: d.label in rhythmHidden ? rhythmHidden[d.label] : !polarShow[RHYTHM_PREF[d.label]],
+    hidden: !polarShow[RHYTHM_PREF[d.label]],
     // Solid up to now, dashed after: the future part is a prediction
     segment: { borderDash: seg => seg.p0.parsed.x >= nowHours ? [6, 5] : undefined },
   }));
@@ -3793,21 +3908,22 @@ function renderRhythms() {
 
   syncRhythmMode();
   const circle = rhythmMode === "circle";
-  const stageLine = "The strip under the time axis estimates your sleep stages. Hover the legend or the strip for explanations";
+  const stageLine = "The strip under the time axis estimates your sleep stages. Tap a name in the key (or hover the strip) for explanations";
   const panLine = "Drag the chart sideways (or swipe, or Shift + scroll) to move through time.";
   if (circle) {
     rhythmNote.textContent = rhythmNote.textContent
       .replace(stageLine, "On the clock, midnight is at the top; the hour ring is shaded where you slept, curves " +
         "reach further out the higher they are" +
         (polarShow.rStages ? ", the inner ring estimates your sleep stages (thicker = deeper)" : "") +
-        ", and the marks inside are logged events. Hover the clock or the key for details")
+        ", and the marks inside are logged events. Tap a name in the key, or hover the clock, for details")
       .replace(panLine, "Swipe or Shift + scroll sideways on the clock (or use the arrows) to change day.");
   } else if (!polarShow.rStages) {
-    rhythmNote.textContent = rhythmNote.textContent.replace(stageLine, "Hover the legend for explanations");
+    rhythmNote.textContent = rhythmNote.textContent.replace(stageLine, "Tap a name in the key for an explanation");
   }
+  renderRhythmKey(datasets, circle);
   rhythmCanvas.style.display = circle ? "none" : "";
   rhythmPolar.style.display = circle ? "block" : "none";
-  rhythmKey.hidden = !circle;
+  rhythmKey.hidden = false;
   if (circle) {
     rhythmCanvas.parentElement.style.height = "";
     renderRhythmCircle({ datasets: datasets.filter(d => !d.hidden), episodes, asleep, stages: shownStages,
@@ -3816,7 +3932,7 @@ function renderRhythms() {
     return;
   }
 
-  RHYTHM_PLOT_HEIGHT = narrowScreen() ? 360 : 300;
+  RHYTHM_PLOT_HEIGHT = narrowScreen() ? 290 : 270;
   rhythmCanvas.parentElement.style.height = `${RHYTHM_PLOT_HEIGHT}px`;
   rhythmChart = new Chart(rhythmCanvas, {
     type: "line",
@@ -3852,17 +3968,7 @@ function renderRhythms() {
       plugins: {
         rhythmMarks: { sleep: episodes, lanes, now: nowHours, midnights },
         rhythmLanes: { lanes, stages: shownStages, now: nowHours },
-        legend: {
-          labels: legendLabels(),
-          onClick(e, item, legend) {
-            Chart.defaults.plugins.legend.onClick.call(this, e, item, legend);   // normal show/hide
-            rhythmHidden[item.text] = !legend.chart.isDatasetVisible(item.datasetIndex);
-          },
-          onHover: (e, item) => {
-            if (!panState) showTip(RHYTHM_INFO[item.text] ?? item.text, e.native, "legend", rhythmCanvas);
-          },
-          onLeave: () => { if (tipSource === "legend") hideTip(); },
-        },
+        legend: { display: false },     // the key above the chart shows and hides curves
       },
     },
     plugins: [rhythmMarks, rhythmLanes, stageHover],
@@ -4216,13 +4322,13 @@ function flagBadge(text) {
   b.className = "eat-flag";
   b.tabIndex = 0;
   b.textContent = text;
-  b.addEventListener("mousemove", e => showTip(EAT_FLAG_INFO, e, "eatflag", b));
-  b.addEventListener("mouseleave", () => { if (tipSource === "eatflag") hideTip(); });
-  b.addEventListener("focus", () => {
-    const r = b.getBoundingClientRect();
-    showTip(EAT_FLAG_INFO, { clientX: r.left, clientY: r.bottom, pageX: r.left + scrollX, pageY: r.bottom + scrollY }, "eatflag", b);
-  });
-  b.addEventListener("blur", () => { if (tipSource === "eatflag") hideTip(); });
+  const q = document.createElement("span");
+  q.className = "flag-q";
+  q.textContent = "?";
+  b.appendChild(q);
+  b.setAttribute("role", "button");
+  b.setAttribute("aria-label", "Why is this flagged?");
+  attachHelp(b, () => EAT_FLAG_INFO, "eatflag");
   return b;
 }
 

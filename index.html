@@ -155,7 +155,6 @@
                   border: 1px solid #d5dbe7; background: #fff; color: #5a6272; }
     .dose-daily[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
     #rhythmPolar { margin: 0 auto; touch-action: pan-y; }
-    .rhythm-key { font-size: 0.85em; margin: 6px 0 0; }
     .swatch.line-swatch { width: 16px; height: 3px; border-radius: 2px; }
     .dose-stats { flex-basis: 100%; font-size: 0.8em; color: #5a6272; padding-left: 4px; }
     .btn.small-btn { padding: 2px 10px; font-size: 0.8em; }
@@ -204,11 +203,44 @@
     .warn-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px;
                     font-size: 0.9em; color: #5a6272; }
 
-    .backup-bar { position: fixed; top: 12px; right: 12px; z-index: 20; display: flex; gap: 6px;
-                  padding: 5px; background: rgba(255, 255, 255, 0.95); border: 1px solid #e4e8f1;
-                  border-radius: 999px; box-shadow: 0 2px 10px rgba(31, 42, 68, 0.12);
-                  --accent: #3b3f9e; --tint: #e3e7f5; }
-    .backup-bar .btn { padding: 5px 13px; }
+    .menu-wrap { position: fixed; top: 12px; right: 12px; z-index: 20; }
+    .menu-btn { display: grid; place-content: center; gap: 4px; width: 42px; height: 42px; padding: 0; cursor: pointer;
+                border-radius: 50%; border: 1px solid #e4e8f1; background: rgba(255, 255, 255, 0.95);
+                box-shadow: 0 2px 10px rgba(31, 42, 68, 0.12); }
+    .menu-btn, .app-menu button, .rkey-name, .rkey-check { -webkit-tap-highlight-color: transparent; }
+    .setup-dialog h2:focus { outline: none; }
+    .menu-btn span { display: block; width: 18px; height: 2px; border-radius: 1px; background: #3b3f9e; }
+    .menu-btn[aria-expanded="true"] { background: #e3e7f5; }
+    .app-menu { position: absolute; top: 50px; right: 0; min-width: 190px; padding: 6px; display: grid; gap: 2px;
+                background: #fff; border: 1px solid #e4e8f1; border-radius: 14px;
+                box-shadow: 0 8px 28px rgba(31, 42, 68, 0.18); }
+    .app-menu[hidden] { display: none; }
+    .app-menu button { font: inherit; font-size: 0.95em; text-align: left; padding: 10px 12px; border: none;
+                       border-radius: 10px; background: none; color: #1f2a44; cursor: pointer; }
+    .app-menu button:hover, .app-menu button:focus-visible { background: #eef1f7; }
+    .app-menu button span { display: inline-block; width: 1.3em; color: #3b3f9e; }
+    .rhythm-key { display: flex; flex-wrap: wrap; gap: 6px 8px; justify-content: center; margin: 6px 0 8px; }
+    .rkey-item { display: inline-flex; align-items: center; border: 1px solid #d5dbe7; border-radius: 999px;
+                 background: #fff; font-size: 0.85em; }
+    .rkey-item.off { opacity: 0.6; }
+    .rkey-check { display: inline-flex; align-items: center; gap: 5px; padding: 4px 2px 4px 9px; cursor: pointer; }
+    .rkey-check input { margin: 0; accent-color: #3b3f9e; }
+    .rkey-name { font: inherit; border: none; background: none; color: #1f2a44; padding: 4px 10px 4px 4px;
+                 cursor: help; border-radius: 0 999px 999px 0; }
+    .rkey-name::after, .flag-q { content: "?"; display: inline-grid; place-items: center; width: 15px; height: 15px;
+                                 margin-left: 5px; border: 1px solid #b9bfe8; border-radius: 50%; background: #fff;
+                                 color: #3b3f9e; font-size: 10px; font-weight: bold; line-height: 1; vertical-align: 1px; }
+    .rkey-item.help-only .rkey-check { padding-right: 0; }
+    .rkey-item.help-only .rkey-check:empty { padding: 0 0 0 6px; }
+    .help-q { display: inline-grid; place-items: center; flex: none; width: 18px; height: 18px; margin-left: 4px; padding: 0;
+              border: 1px solid #b9bfe8; border-radius: 50%; background: #fff; color: #3b3f9e; font: inherit;
+              font-size: 11px; font-weight: bold; line-height: 1; cursor: help; -webkit-tap-highlight-color: transparent; }
+    .help-q:hover, .help-q:focus-visible { background: #eef1f7; }
+    .eat-flag { -webkit-tap-highlight-color: transparent; }
+    .eat-flag .flag-q { width: 13px; height: 13px; border-color: rgba(255,255,255,0.8); background: transparent; color: #fff;
+                        font-size: 9px; margin-left: 4px; }
+    #cycleKey[hidden] { display: none; }
+    .rkey-name:hover, .rkey-name:focus-visible { background: #eef1f7; }
     .backup-dialog { --accent: #3b3f9e; --tint: #e3e7f5; max-width: 400px; }
     .backup-dialog code { font-size: 0.95em; background: #eef1f7; padding: 1px 5px; border-radius: 4px; }
     .dialog-choices { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 16px; }
@@ -317,7 +349,7 @@
     .nav-arrow { flex: none; width: 34px; height: 34px; border-radius: 50%; border: 1px solid #d5dbe7;
                  background: #fff; color: #3b3f9e; font-size: 22px; line-height: 1; padding: 0 0 3px;
                  cursor: pointer; box-shadow: 0 1px 3px rgba(31, 42, 68, 0.08);
-                 margin-top: 133px; }   /* middle of the 300px plot (RHYTHM_PLOT_HEIGHT in script.js) */
+                 margin-top: 118px; }   /* middle of the 270px plot (RHYTHM_PLOT_HEIGHT in script.js) */
     .nav-arrow:hover { background: #e3e7f5; }
 
     .chart-row.plot-only { align-items: center; }            /* nothing below the plot: center on the chart */
@@ -325,7 +357,7 @@
     .nav-arrow:disabled { opacity: 0.35; cursor: default; background: #fff; }
     @media (max-width: 640px) {
       .chart-row { gap: 2px; }
-      .nav-arrow { width: 28px; height: 28px; font-size: 18px; margin-top: 166px; }   /* 360px plot on phones */
+      .nav-arrow { width: 28px; height: 28px; font-size: 18px; margin-top: 131px; }   /* 290px plot on phones */
       .chart-row.plot-only .nav-arrow { margin-top: 0; }
     }
 
@@ -357,7 +389,7 @@
                     padding: 22px 24px; border: none; border-radius: 18px; color: #1f2a44;
                     box-shadow: 0 20px 60px rgba(31, 42, 68, 0.3); --accent: #3b3f9e; --tint: #e3e7f5; }
     .setup-dialog::backdrop { background: rgba(31, 42, 68, 0.55); }
-    .setup-dialog.welcome::backdrop { background: linear-gradient(135deg, #3b3f9e, #1aa6b7); }
+    .setup-dialog.welcome::backdrop { background: #eef1f7; }
     .setup-dialog h2 { margin: 0 0 4px; }
     .setup-intro { margin: 0 0 14px; color: #3d4556; }
     .setup-group { border: none; padding: 0; margin: 0 0 16px; }
@@ -395,7 +427,7 @@
                        --accent: #3b3f9e; --tint: #e3e7f5; }
     .backup-reminder[hidden] { display: none; }
     .reminder-actions { display: flex; gap: 6px; }
-    @media (max-width: 640px) { body { margin-top: 70px; } }   /* room for the Settings/Export/Import bar */
+    @media (max-width: 640px) { body { margin-top: 62px; } }   /* room for the ☰ menu button */
     .setup-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
     .setup-dialog.welcome #setupCancel, .setup-dialog.welcome #fineTune { display: none; }
     .setup-error { color: #b8324b; }
@@ -437,10 +469,14 @@
 </head>
 <body>
 
-  <div class="backup-bar" role="toolbar" aria-label="Settings and backups">
-    <button type="button" class="btn ghost" id="settingsBtn" title="Your goals, birth control and what's shown">⚙ Settings</button>
-    <button type="button" class="btn primary" id="exportBtn" title="Save a backup">⤓ Export</button>
-    <button type="button" class="btn ghost" id="importBtn" title="Load a backup">⤒ Import</button>
+  <div class="menu-wrap">
+    <button type="button" class="menu-btn" id="menuBtn" aria-label="Menu" aria-haspopup="true" aria-expanded="false"
+            aria-controls="appMenu"><span></span><span></span><span></span></button>
+    <div id="appMenu" class="app-menu" hidden>
+      <button type="button" id="settingsBtn"><span aria-hidden="true">⚙</span> Settings</button>
+      <button type="button" id="exportBtn"><span aria-hidden="true">⤓</span> Export backup</button>
+      <button type="button" id="importBtn"><span aria-hidden="true">⤒</span> Import backup</button>
+    </div>
     <input type="file" id="importFile" accept=".json,application/json" hidden>
   </div>
 
@@ -471,7 +507,7 @@
 
   <dialog id="setupDialog" class="setup-dialog" aria-labelledby="setupTitle">
     <form method="dialog" id="setupForm">
-      <h2 id="setupTitle">Welcome to Biological Rhythms Tracker</h2>
+      <h2 id="setupTitle" tabindex="-1" autofocus>Welcome to Biological Rhythms Tracker</h2>
       <p class="setup-intro" id="setupIntro">Which of the following are you interested in? You can change these later in Settings.</p>
       <div id="installStep" class="install-step" hidden>
         <p class="install-lead">Before you start, add the tracker to your Home Screen so it opens like an app, works
@@ -591,7 +627,7 @@
         <ul>
           <li><strong>On iPhone:</strong> add the app to your Home Screen (in Safari: Share → Add to Home Screen) and
             always open it from there. The home-screen app and a Safari tab keep separate data.</li>
-          <li><strong>Back up regularly:</strong> <strong>Export</strong> (top right) saves a backup file; on iPhone,
+          <li><strong>Back up regularly:</strong> <strong>Export backup</strong> (in the ☰ menu, top right) saves a backup file; on iPhone,
             choose "Save to Files" to keep it in Files or iCloud Drive. <strong>Import</strong> restores it, on this
             device or a new one.</li>
         </ul>
@@ -621,10 +657,10 @@
   </dialog>
 
   <dialog id="backupAck" class="setup-dialog ack-dialog" aria-labelledby="ackTitle">
-    <h2 id="ackTitle">Save your data regularly</h2>
+    <h2 id="ackTitle" tabindex="-1" autofocus>Save your data regularly</h2>
     <p>Everything you log is stored only on this device. Nothing is backed up automatically, not even to iCloud, so
       if the app is deleted, your browser data is cleared, or you lose or replace your phone, your data is gone.</p>
-    <p>Use <strong>Export</strong> (top right) regularly to save a backup file somewhere safe, like Files or iCloud
+    <p>Use <strong>Export backup</strong> (in the ☰ menu, top right) regularly to save a backup file somewhere safe, like Files or iCloud
       Drive. <strong>Import</strong> brings it back. The app will remind you.</p>
     <label class="ack-check"><input type="checkbox" id="ackBox"> I understand that my data is only on this device and
       that I need to back it up regularly.</label>
@@ -654,6 +690,7 @@
   <button type="button" class="today-btn" id="cycleToday" title="Back to the current cycle">Today</button>
 </div>
 <p id="chartNote" class="empty"></p>
+<div id="cycleKey" class="rhythm-key" role="group" aria-label="Hormones: check to show, tap a name for details"></div>
 <div class="chart-row plot-only">
   <button type="button" class="nav-arrow" id="prevCycle" aria-label="Previous cycle">&lsaquo;</button>
   <div class="chart-box"><canvas id="hormoneChart"></canvas><canvas id="cyclePolar" style="display:none"></canvas></div>
@@ -662,9 +699,9 @@
 <div id="polarOptions" class="polar-options" hidden>
   <div class="cycle-key" role="list" aria-label="Key">
     <span class="key-head">Phases</span>
-    <span class="key-item key-natural"><span class="swatch dot" style="background:#c3e9df"></span>Follicular</span>
+    <span class="key-item key-natural key-follicular"><span class="swatch dot" style="background:#c3e9df"></span>Follicular</span>
     <span class="key-item key-natural"><span class="swatch dot" style="background:#cbbff3;box-shadow:0 0 0 2px #4b3fa3"></span>Ovulation</span>
-    <span class="key-item key-natural"><span class="swatch dot" style="background:#c9d6f2"></span>Luteal</span>
+    <span class="key-item key-natural key-luteal"><span class="swatch dot" style="background:#c9d6f2"></span>Luteal</span>
     <span class="key-item key-bc" hidden><span class="swatch dot" style="background:#dfe2ec"></span>Active pills</span>
     <span class="key-item key-bc" hidden><span class="swatch dot" style="background:#f6d5dc"></span>Pill-free days</span>
     <span class="key-head">Marks</span>
@@ -699,8 +736,8 @@
   <h2>Cycle history</h2>
   <div class="view-bar inline">
     <div class="segmented" id="historyView" role="group" aria-label="History chart style">
-      <button type="button" data-mode="circle" aria-pressed="true">Circle</button>
-      <button type="button" data-mode="bars">Bars</button>
+      <button type="button" data-mode="circle">Circle</button>
+      <button type="button" data-mode="bars" aria-pressed="true">Bars</button>
     </div>
     <div class="segmented" id="historyRange" role="group" aria-label="Cycles shown">
       <button type="button" data-range="3">3 cycles</button>
@@ -854,12 +891,12 @@
     <button type="button" class="today-btn" id="rhythmToday" title="Back to today">Today</button>
   </div>
   <p id="rhythmNote" class="empty"></p>
+  <div id="rhythmKey" class="rhythm-key" role="group" aria-label="Curves: check to show, tap a name for details"></div>
   <div class="chart-row">
     <button type="button" class="nav-arrow" id="prevDay" aria-label="Previous day">&lsaquo;</button>
     <div class="chart-box"><canvas id="rhythmChart"></canvas><canvas id="rhythmPolar" style="display:none"></canvas></div>
     <button type="button" class="nav-arrow" id="nextDay" aria-label="Next day">&rsaquo;</button>
   </div>
-  <div id="rhythmKey" class="opt-group key rhythm-key" hidden></div>
   </div><!-- rhythmChartArea -->
 
   <div class="rhythm-log">
@@ -1455,14 +1492,14 @@
 <script src="script.js"></script>
 <script>
   // Warn if script.js doesn't match this page (usually an old cached copy)
-  if (window.APP_VERSION !== "52") {
+  if (window.APP_VERSION !== "54") {
     const banner = document.createElement("div");
     banner.className = "version-banner";
     banner.textContent = window.APP_VERSION === undefined
       ? "script.js wasn't found next to this page, so the app can't run. Extract the whole zip (right-click → " +
         "Extract All), then open index.html from inside the extracted biological-rhythms-tracker folder, " +
         "where script.js and chart.umd.min.js sit beside it."
-      : `This page is version 52 but the script.js next to it is version ${window.APP_VERSION}, so some ` +
+      : `This page is version 54 but the script.js next to it is version ${window.APP_VERSION}, so some ` +
         "features may not work. Use the index.html and script.js from the same download, then press Ctrl+F5 " +
         "(on a phone: close the app fully and open it again).";
     document.body.prepend(banner);
