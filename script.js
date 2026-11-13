@@ -1,6 +1,6 @@
 // Version stamp: the page checks this matches its own, to catch an outdated script.js
 // (for example one the browser cached). Update both numbers together.
-window.APP_VERSION = "54";
+window.APP_VERSION = "55";
 
 // ---------------------------------------------
 // Logging days

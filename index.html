@@ -7,8 +7,8 @@
   <meta name="description" content="A private tracker for menstrual cycles, sleep and daily rhythms. Data stays on your device.">
   <meta name="theme-color" content="#3b3f9e">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/waves-icon-192.png">
+  <link rel="apple-touch-icon" href="icons/waves-apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Rhythms">
@@ -1492,14 +1492,14 @@
 <script src="script.js"></script>
 <script>
   // Warn if script.js doesn't match this page (usually an old cached copy)
-  if (window.APP_VERSION !== "54") {
+  if (window.APP_VERSION !== "55") {
     const banner = document.createElement("div");
     banner.className = "version-banner";
     banner.textContent = window.APP_VERSION === undefined
       ? "script.js wasn't found next to this page, so the app can't run. Extract the whole zip (right-click → " +
         "Extract All), then open index.html from inside the extracted biological-rhythms-tracker folder, " +
         "where script.js and chart.umd.min.js sit beside it."
-      : `This page is version 54 but the script.js next to it is version ${window.APP_VERSION}, so some ` +
+      : `This page is version 55 but the script.js next to it is version ${window.APP_VERSION}, so some ` +
         "features may not work. Use the index.html and script.js from the same download, then press Ctrl+F5 " +
         "(on a phone: close the app fully and open it again).";
     document.body.prepend(banner);
